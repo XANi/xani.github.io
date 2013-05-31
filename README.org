@@ -1,0 +1,83 @@
+* GSM
+  + Carrier list: AT+COPS=?
+    Result: +COPS: (2,"PL-IDEA","IDEA","26003"),(3,"PL-PLUS","PLUS","26001"),(3,"PL-ERA GSM","ERAGSM","26002"),(3,"","","26006")
+  + Chosen carrier: at+cops?
+    Result: +COPS: 0,2,26003
+    first digit:
+      0. Automatic network selection (<oper> ignored)
+      1. Manual network selection, <oper> must be present, <AcT> is optional.
+      2. Deregister from network.
+      3. Set <format only, no registration/deregistration.
+      4. Manual selection with automatic fall back (enters automatic mode if manual selection fails).
+  +  Registration status: AT+CREG?
+     Result: +CREG: 0,1
+     First digit should be zero, second:
+       0. Not registered, not searching
+       1. Registered to home network
+       2. Not registered, searching for network
+       3. Registration denied
+       4. ???
+       5. Registered, roaming
+  + Signal strength: AT+CSQ
+    Should be at least above 10, convert to dbm: dBm = 113 - n*2
+  + Reset GSM stack ("soft" reset):
+    AT+CFUN=0 - deactivate
+    AT+CFUN=1 - activate
+
+* RAID
+** ServeRAID
+   + arcconf GETCONFIG 1
+   + arcconf GETLOGS 1 DEVICE
+   + arcconf GETLOGS 1 EVENT
+   + add hotspare: arcconf setstate 1 device 0,1 hsp logicaldrive 0
+** MegaRAID
+   + http://kb.lsi.com/KnowledgebaseArticle16516.aspx
+   + ./MegaCli64  -AdpEventLog -GetEvents -f megacli-events.log -aALL
+   + ./MegaCli64 -AdpAlILog -a0
+   + ./MegaCli64 -PDList -aALL
+   + ./MegaCli64 -PDInfo -PhysDrv '[3:10]' -aALL
+   + ./MegaCli64 -PdLocate -Physdrv '[3:10]' -aALL  - locate, add -stop to disable led
+   + ./MegaCli64 -CfgLdAdd r0 [3:2] -a0
+     MegaCli -CfgLdAdd -rX[E0:S0,E1:S1,...] [WT|WB] [NORA|RA|ADRA] [Direct|Cached]
+   + ./MegaCli64 -LDInfo  -Lall -a0
+   + export single drive as device (will be coerced!): ./MegaCli64 -CfgLdAdd -r0 [3:2] WT NORA Cached -a0
+   + ./MegaCli64 -PDList -aALL |grep -P -i '(Slot Number|Firmware state|Coerced size|Enclosure device)' |perl -pe 's/Enclosure/\nEnclosure/g' |less
+** Software RAID
+   + create
+     mdadm --create /dev/md0 --level=1 --raid-devices=2 /dev/sdc1 /dev/sdd1
+   + HDD + SSD (don't do, HDD-level performance on any writing, blocks whole system when writebehind is full)
+     mdadm --create /dev/md2  --level=1 --force -b internal --raid-devices=1 --write-behind=16383 /dev/SSD/DRBD
+
+* MySQL
+** User
+   + UPDATE user SET Password = PASSWORD('') WHERE user='zyx' ;  flush privileges
+* SSL
+** show certs
+   openssl s_client -showcerts -connect mail.nixcraft.net:443
+** generate csr
+   openssl req -new -key server.key -out server.csr
+* Varnish
+  - last ban age
+    varnishadm ban.list |sort -r |tail -n2 |perl -e '$_=<STDIN>; my($last,undef, undef,undef,$url) = split;print "Last ban age: " . scalar time - $last ; print " URL: $url\n"'
+* RPM rebuild
+** SPEC
+   rpmrebuild -e -n -p file.rpm
+* SMART
+** Basic commands
+  + smartctl -a /dev/sd
+  + smartctl -t long
+** MegaRAID
+  + smart: smartctl -d sat+megaraid,5 -a /dev/sdb - any device will do, 5 is device ID
+
+* Java
+** heap dump
+  + disable any running watchdog
+  + jmap -dump:file=/tmp/heap.bin <JAVA_PID>
+* Asterisk/SIP
+** convert to gsm
+  - convert: for a in *.wav; do sox "$a" -c 1 -r 8000 "`echo $a|sed -e s/wav//`gsm" ; done
+  - mp3 to wav(ffmpeg): avconv -i EN05.mp3 -ar 44100 -ac 1 EN05.wav
+** sipsak - SIP swiss army knife
+* PostgreSQL
+  + create database with encoding/locale
+    createdb -T template0  --locale=pl_PL.utf8 somedb -E UNICODE
